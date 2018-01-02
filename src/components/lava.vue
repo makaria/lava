@@ -22,7 +22,7 @@
                   <input id="col" type="number" min="1" max="1000" class="input" v-model="col">
                 </label>
               </template>
-              <button class="hint bg-water" @click="hint">Hint</button>
+              <button class="hint bg-water" @click="hint">{{ hintText }}</button>
             </div>
             <div class="azeroth">
               <icons></icons>
@@ -65,7 +65,10 @@ export default {
       height: 300,
       totems: {},
       // status: {},
-      editing: false
+      editing: false,
+      result: [],
+      prevState: '',
+      prevHintIndex: 0
     }
   },
   computed: {
@@ -81,6 +84,11 @@ export default {
       }
       return status
     },
+    currentState () {
+      return this.status.reduce((a, b) => {
+        return a + b
+      }, '')
+    },
     weight () {
       return this.status.reduce((a, b) => {
         return a + b
@@ -94,6 +102,9 @@ export default {
     },
     rowNum () {
       return ~~this.row
+    },
+    hintText () {
+      return `Hint${this.result.length > 0 ? ' ' + (this.prevHintIndex % this.result.length) : ''}`
     }
   },
   created () {
@@ -176,12 +187,23 @@ export default {
       let insects = this.status.reduce((a, b) => {
         return a + b
       }, '')
-      console.time('die')
-      let result = DIE(insects, this.colNum, this.rowNum)
-      console.log(result)
-      console.timeEnd('die')
-      if (result.length > 0) {
-        let hints = result[0]
+      let hints
+      if (this.prevState === insects) {
+        this.prevHintIndex = this.prevHintIndex + 1
+        let index = this.prevHintIndex % (this.result.length)
+        hints = this.result[index]
+      } else {
+        this.prevState = insects
+        console.time('die')
+        let result = DIE(insects, this.colNum, this.rowNum)
+        console.timeEnd('die')
+        this.prevHintIndex = 0
+        this.result = result
+        if (result.length > 0) {
+          hints = result[0]
+        }
+      }
+      if (hints) {
         let state = {}
         Array.from(hints).forEach((hint, index) => {
           state[index] = Object.assign({}, this.totems[index], {

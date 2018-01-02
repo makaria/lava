@@ -1,48 +1,69 @@
 const die = (insects, col, row) => {
   col = parseInt(col)
   row = parseInt(row)
+  // prepare neighbors
   let neighbors = {}
   Array.from(insects).forEach((insect, index) => {
     neighbors[index] = getNeighbors(index, col, row)
   })
-  const off = (arr, str, j) => {
-    j = j || 0
-    arr.forEach((a, i) => {
-      if (a === '0') {
-        let index = i + j * col
-        let fns = neighbors[index]
-        for (let fn of fns) {
-          let b = str.charAt(fn) === '0' ? '1' : '0'
-          str = str.substring(0, fn) + b + str.substring(fn + 1)
+  // exec input row by row
+  const offByRow = (output, input, base) => {
+    // console.log(input, JSON.stringify(output))
+    input.forEach((action, index) => {
+      if (action) {
+        let inputIndex = index + base
+        let outputIndexs = neighbors[inputIndex]
+        for (let outputIndex of outputIndexs) {
+          output[outputIndex] = !output[outputIndex]
         }
       }
+      // console.log(JSON.stringify(output))
     })
-    return str
+    // no need to return
+    return output
   }
-  let max = Math.pow(2, col)
+  let insectsArray = insects.split('').map((byte) => {
+    return byte === '0'
+  })
   let result = []
+  let input, output
+  let max = Math.pow(2, col)
   let i = 0
+  // console.log(insectsArray)
   while (i < max) {
-    let actions = ''
-    let str = insects
-    let firstRow = i.toString(2).padStart(col, '0')
-    actions = actions + firstRow
-    str = off(Array.from(firstRow), str, 0)
+    // init
+    input = []
+    // copy a init state, while loop seems faster than slice.
+    output = insectsArray.slice()
+    // first row
+    let firstRowStr = i.toString(2).padStart(col, '0')
+    let firstRow = Array.from(firstRowStr).map((byte, index) => {
+      return byte === '0'
+    })
+    input = input.concat(firstRow)
+    output = offByRow(output, firstRow, 0)
+    // other row
     let j = 1
     while (j < row) {
-      let prevRow = Array.from(str.substr((j - 1) * col, col))
+      let prevRow = output.slice((j - 1) * col, j * col)
       let nextRow = prevRow.map((byte) => {
-        return byte === '0' ? '1' : '0'
+        return !byte
       })
-      str = off(nextRow, str, j)
-      nextRow = nextRow.reduce((a, b) => {
-        return a + b
-      }, '')
-      actions = actions + nextRow
+      input = input.concat(nextRow)
+      output = offByRow(output, nextRow, j * col)
       j++
     }
-    if (parseInt(str) === 0) {
-      result.push(actions)
+    // success?
+    let darkness = output.reduce((a, b) => {
+      return a && b
+    }, true)
+    if (darkness) {
+      let inputStr = input.map((byte) => {
+        return byte ? '0' : '1'
+      }).reduce((a, b) => {
+        return a + b
+      }, '')
+      result.push(inputStr)
     }
     i++
   }
