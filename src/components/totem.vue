@@ -1,13 +1,12 @@
 <template>
   <g class="totem" :transform="transform" @click="toggle">
     <rect class="totem"
-          :class="hint"
           :width="size"
           :height="size"
           :x="0"
           :y="0">
     </rect>
-    <svg class="icon" :class="out" :width="size * scale" :height="size * scale" :x="size * offset" :y="size * offset">
+    <svg class="icon" :class="iconClass" :width="size * scale" :height="size * scale" :x="size * offset" :y="size * offset">
       <use :xlink:href="icon"></use>
     </svg>
     <!-- <image  :x="x"
@@ -60,6 +59,9 @@ export default {
     },
     clicked () {
       return this.totem.clicked
+    },
+    iconClass () {
+      return this.out + ' ' + this.hint
     }
   },
   methods: {
@@ -72,7 +74,7 @@ export default {
 
 <style scoped>
 .totem {
-  fill: #9e9e9e;
+  fill: #e0e0e0;
   stroke: black;
   cursor: pointer;
 }
