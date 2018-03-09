@@ -43,9 +43,9 @@
               </svg>
             </div>
             <div class="audio">
-              <audio ref="water" src="../../static/water.wav"></audio>
-              <audio ref="fire" src="../../static/fire.wav"></audio>
-              <audio ref="success" src="../../static/success.wav"></audio>
+              <audio ref="water" src="./static/water.wav"></audio>
+              <audio ref="fire" src="./static/fire.wav"></audio>
+              <audio ref="success" src="./static/success.wav"></audio>
             </div>
           </div>
         </div>
