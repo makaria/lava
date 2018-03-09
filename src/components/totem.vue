@@ -23,7 +23,8 @@ export default {
   name: 'totem',
   props: {
     totem: {},
-    size: 0
+    size: 0,
+    editing: false
   },
   data () {
     return {
@@ -55,7 +56,7 @@ export default {
       return (1 - this.scale) / 2
     },
     hint () {
-      return this.totem.hint && !this.clicked ? 'hint' : ''
+      return (((this.totem.hint && !this.clicked) || (this.totem.hint === false && this.clicked)) && !this.editing) ? 'hint' : ''
     },
     clicked () {
       return this.totem.clicked

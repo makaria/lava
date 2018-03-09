@@ -17,8 +17,5 @@ export default {
 }
 </script>
 
-<style scoped>
-.icons {
+<style scoped></style>
 
-}
-</style>

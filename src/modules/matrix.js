@@ -1,5 +1,5 @@
 // http://www.keithschwarz.com/interesting/code/?dir=lights-out
-// this is derived from the cpp version by Keith Schwarz
+// copied from the cpp version by Keith Schwarz
 import { getNeighbors, copy } from './util'
 
 class Matrix {
@@ -141,8 +141,9 @@ class Matrix {
         }
       }
       if (pivot === -1) {
-        if (puzzle[pivot]) {
-          throw new Error('Puzzle has no solution:(<')
+        if (puzzle[i]) {
+          console.error('Puzzle has no solution:(<')
+          return []
         } else {
           let r1, r2
           let array = []

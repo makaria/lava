@@ -8,7 +8,7 @@
           <div class="lava">
             <!-- <h2>Lava Foundation</h2> -->
             <div class="actions">
-              <label for="edit" class="label edit" :class="editing ? 'water' : 'fire'">
+              <label for="edit" class="label edit" :class="editing ? 'bg-fire' : 'bg-water'">
                 {{ editing ? 'Editing' : 'Playing' }}
                 <input id="edit" type="checkbox" class="input" v-model="editing">
               </label>
@@ -22,21 +22,24 @@
                   <input id="col" type="number" min="1" max="1000" class="input" v-model="col">
                 </label>
               </template>
-              <button class="hint bg-water" @click="hint">{{ hintText }}</button>
-              <button class="test" @click="test">Test</button>
+              <button v-if="!editing" class="hint bg-water" @click="hint">{{ hintText }}</button>
+              <button v-else class="reset bg-water" @click="reset">Reset</button>
+              <!-- <button class="test" @click="test">Test</button> -->
             </div>
-            <div class="azeroth" @contextmenu.prevent>
+            <div class="azeroth">
               <icons></icons>
               <svg  ref="board"
                     class="maelstrom"
                     :width="totemSize * col"
                     :height="totemSize * row"
+                    @contextmenu.prevent
                     >
                     <totem  v-for="(totem, index) in totems"
                             :key="index"
                             :totem="totem"
                             :size="totemSize"
-                            @toggle="toggleTotem"></totem>
+                            @toggle="toggleTotem"
+                            :editing="editing"></totem>
               </svg>
             </div>
             <div class="audio">
@@ -57,6 +60,7 @@ import icons from './icons'
 import totem from './totem'
 // import DIE from '../modules/exhaustion'
 import Matrix from '../modules/matrix'
+import { getNeighbors } from '../modules/util'
 
 export default {
   name: 'lava',
@@ -66,50 +70,46 @@ export default {
   },
   data () {
     return {
-      row: 3,
-      col: 3,
+      row: 5,
+      col: 5,
       width: 300,
       height: 300,
       totems: {},
-      status: [],
+      // status: [],
       editing: false,
+      showHint: false,
       result: [],
       prevState: '',
-      prevHintIndex: 0,
-      audioContext: null
+      prevHintIndex: 0
     }
   },
   computed: {
     totemSize () {
-      return this.width / Math.max(this.colNum, this.rowNum)
+      return Math.min(this.width / this.colNum, this.height / this.rowNum)
     },
-    insects () {
+    status () {
+      let status = []
+      for (let key in this.totems) {
+        let totem = this.totems[key]
+        let index = totem.row * this.colNum + totem.col
+        status[index] = totem.off ? 0 : 1
+      }
+      return status
+    },
+    state () {
       return this.status.reduce((a, b) => {
         return a + b
       }, '')
     },
-    // status () {
-    //   let status = []
-    //   for (let key in this.totems) {
-    //     let totem = this.totems[key]
-    //     let index = totem.row * this.colNum + totem.col
-    //     status[index] = totem.off ? 0 : 1
-    //   }
-    //   return status
-    // },
-    // currentState () {
-    //   return this.status.reduce((a, b) => {
-    //     return a + b
-    //   }, '')
-    // },
-    // weight () {
-    //   return this.status.reduce((a, b) => {
-    //     return a + b
-    //   }, 0)
-    // },
-    // done () {
-    //   return !this.editing && this.weight === 0
-    // },
+    weight () {
+      if (this.status.length > 0) {
+        return this.status.reduce((a, b) => {
+          return a + b
+        }, 0)
+      } else {
+        return 42
+      }
+    },
     colNum () {
       return ~~this.col
     },
@@ -130,6 +130,14 @@ export default {
     },
     row () {
       this.createTotems()
+    },
+    weight () {
+      if (!this.editing && this.weight === 0) {
+        this.done()
+      }
+    },
+    editing () {
+      this.isPlayable()
     }
   },
   mounted () {
@@ -142,9 +150,9 @@ export default {
       this.createTotems()
     },
     resize: function () {
-      let size = Math.min(window.innerHeight, window.innerWidth) * 0.8
-      this.width = size
-      this.height = size
+      // let size = Math.min(window.innerHeight, window.innerWidth) * 0.85
+      this.width = window.innerWidth * 0.85
+      this.height = window.innerHeight * 0.8
     },
     createTotems: function () {
       let totems = {}
@@ -155,126 +163,113 @@ export default {
             row: i,
             col: j,
             off: false,
-            neighbors: this.getNeighbors(index)
+            clicked: false,
+            hint: false,
+            neighbors: getNeighbors(index, this.colNum, this.rowNum)
           }
         }
       }
       this.totems = totems
-      this.updateStatus()
     },
-    updateStatus: function () {
-      let status = []
+    reset: function () {
       for (let key in this.totems) {
         let totem = this.totems[key]
-        let index = totem.row * this.colNum + totem.col
-        status[index] = totem.off ? 0 : 1
+        if (totem.off) {
+          totem.off = false
+        }
       }
-      this.status = status
     },
     toggleTotem: function (totem) {
-      // this.audio.play()
+      this.audioPlay(totem.off)
       let index = totem.row * this.colNum + totem.col
-      totem = this.totems[index]
-      let off = totem.off
-      // this.audioPlay(totem.off)
-      let state = {}
-      state[index] = Object.assign({}, totem, {
-        off: !totem.off,
-        clicked: !totem.clicked
-      })
+      let patch = {}
       if (!this.editing) {
-        let neighbors = totem.neighbors
+        let neighbors = this.totems[index].neighbors
         for (let neighbor of neighbors) {
-          state[neighbor] = Object.assign({}, this.totems[neighbor], {
+          patch[neighbor] = Object.assign({}, this.totems[neighbor], {
             off: !this.totems[neighbor].off
           })
         }
-      }
-      this.totems = Object.assign({}, this.totems, state)
-      // 因为不确定computed执行的时机，故在此先明确的先计算出status再执行依赖status的后续函数
-      this.updateStatus()
-      if (!this.editing) {
-        this.isDone(off)
       } else {
-        this.audioPlay(off)
+        patch[index] = Object.assign({}, this.totems[index], {
+          off: !this.totems[index].off
+        })
       }
-    },
-    isDone: function (off) {
-      // console.log(JSON.stringify(this.status))
-      // 先执行此函数但是还能得到正确结果，莫非读取this.status时会先检查是否需要重新computed？
-      let weight = this.status.reduce((a, b) => {
-        return a + b
-      }, 0)
-      if (weight === 0) {
-        this.$refs.success.play()
-        setTimeout(() => {
-          this.nextBlock()
-        }, 500)
-      } else {
-        this.audioPlay(off)
-      }
-      // console.log(weight)
-    },
-    getNeighbors: function (index) {
-      let mode = index % this.colNum
-      let last = this.colNum - 1
-      let neighbors = []
-      switch (mode) {
-        case 0:
-          neighbors = [index - this.colNum, index + 1, index + this.colNum]
-          break
-        case last:
-          neighbors = [index - this.colNum, index - 1, index + this.colNum]
-          break
-        default:
-          neighbors = [index - this.colNum, index - 1, index + 1, index + this.colNum]
-          break
-      }
-      return neighbors.filter((neighbor) => {
-        return neighbor >= 0 && neighbor < this.rowNum * this.colNum
+      patch[index] = Object.assign({}, patch[index], {
+        clicked: !this.totems[index].clicked
       })
+      this.totems = Object.assign({}, this.totems, patch)
+    },
+    done: function () {
+      this.$refs.success.play()
+      setTimeout(() => {
+        this.nextBlock()
+      }, 500)
     },
     hint: function () {
-      // let insects = this.status.reduce((a, b) => {
-      //   return a + b
-      // }, '')
       let hints
-      if (this.prevState === this.insects) {
+      if (this.prevState === this.state) {
         this.prevHintIndex = this.prevHintIndex + 1
         let index = this.prevHintIndex % (this.result.length)
         hints = this.result[index]
       } else {
-        this.prevState = this.insects
-        console.time('die')
-        // let result = DIE(this.insects, this.colNum, this.rowNum)
-        let result = Matrix.magic(this.insects, this.rowNum, this.colNum)
-        console.timeEnd('die')
+        this.prevState = this.state
         this.prevHintIndex = 0
-        result = result.sort((a, b) => {
-          let wa = a.replace(/0/g, '')
-          let wb = b.replace(/0/g, '')
-          return wa.length < wb.length
-        })
+        console.time('die')
+        // let result = DIE(this.state, this.colNum, this.rowNum)
+        let result = Matrix.magic(this.state, this.rowNum, this.colNum)
+        console.timeEnd('die')
+        result = this.sortByWeight(result)
         this.result = result
-        if (result.length > 0) {
-          hints = result[0]
-        }
+        hints = result[0]
       }
       if (hints) {
-        let state = {}
-        Array.from(hints).forEach((hint, index) => {
-          state[index] = Object.assign({}, this.totems[index], {
-            hint: hint === '1',
-            clicked: false
-          })
-        })
-        this.totems = Object.assign({}, this.totems, state)
+        this.updateHint(hints)
+      } else {
+        console.error('No solution!')
       }
+    },
+    updateHint: function (hints) {
+      let state = {}
+      Array.from(hints).forEach((hint, index) => {
+        state[index] = Object.assign({}, this.totems[index], {
+          hint: hint === '1',
+          clicked: false
+        })
+      })
+      this.totems = Object.assign({}, this.totems, state)
+    },
+    clearHint: function () {
+      for (let key in this.totems) {
+        this.totems[key].hint = false
+        this.totems[key].clicked = false
+      }
+      this.result = []
+    },
+    sortByWeight: function (result) {
+      return result.sort((a, b) => {
+        let wa = a.replace(/0/g, '')
+        let wb = b.replace(/0/g, '')
+        return wa.length < wb.length
+      })
     },
     nextBlock: function () {
       this.row = ~~this.row + 1
       this.col = ~~this.col + 1
-      this.result = []
+    },
+    isPlayable: function () {
+      if (!this.editing) {
+        let result = Matrix.magic(this.state, this.rowNum, this.colNum)
+        if (result.length === 0) {
+          alert('No solutions!')
+          this.editing = true
+        }
+        if (this.prevState !== this.state) {
+          this.clearHint()
+        }
+      } else {
+        // this.result = []
+      }
     },
     audioPlay: function (off) {
       if (off) {
@@ -286,20 +281,16 @@ export default {
         water.currentTime = 0
         water.play()
       }
-    },
-    test: function () {
-      // let a = new Matrix().create('0011100101001110010100101001010010101101001010010100101101010110100101', 5)
-      // let a = new Matrix([[0, 1], [2, 1], [5, 0]])
-      // console.log(a, a.row(2), a.column(2), a.multiply(new Matrix().create('01010', 1)))
-      console.time('die')
-      console.log(Matrix.magic(this.insects, this.rowNum, this.colNum))
-      console.timeEnd('die')
     }
   }
 }
 </script>
 
 <style scoped>
+.layout-padding {
+  padding: 1rem 1.5rem;
+}
+
 .maelstrom {
   /* background-color: #9e9e9e; */
   user-select: none;
@@ -308,9 +299,9 @@ export default {
 .actions {
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
+  justify-content: space-around;
   align-items: center;
-  max-width: 60vw;
+  /* max-width: 60vw; */
   margin: 1rem 20vw;
   user-select: none;
 }
@@ -330,17 +321,31 @@ export default {
   /* max-width: 5rem; */
 }
 
+.edit {
+  padding: .5rem 1rem;
+  color: white;
+  font-size: 1rem;
+  border: 0;
+  /* min-width: 5rem; */
+  /* background-color: #2196f3; */
+}
+
+.edit > .input {
+  display: none;
+}
+
 .input {
   max-width: 2rem;
   margin-left: .5rem;
   text-align: center;
 }
 
-.hint {
-  width: 5rem;
+.hint, .reset {
+  /* min-width: 5rem; */
   /* max-width: 3rem; */
   color: white;
   border: 0;
   padding: .5rem 1rem;
+  font-size: 1rem;
 }
 </style>
